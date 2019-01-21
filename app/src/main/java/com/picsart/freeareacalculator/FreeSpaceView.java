@@ -85,7 +85,7 @@ public class FreeSpaceView extends View {
 
 			for (int i = 0; i < matrix.length; i++) {
 				for (int j = 0; j < matrix[0].length; j++) {
-					canvas.drawText(String.valueOf(matrix[i][j]), i * ROW_SIZE , j * ROW_SIZE + ROW_SIZE, strokePaint);
+					canvas.drawText(String.valueOf(matrix[i][j]), i * ROW_SIZE, j * ROW_SIZE + ROW_SIZE, strokePaint);
 				}
 			}
 
@@ -138,84 +138,79 @@ public class FreeSpaceView extends View {
 	}
 
 
-
-
-    /*Matrix
-    StringBuilder []a = new StringBuilder[mapY];
-        for(int i = 0 ; i<mapY;i++){
-            StringBuilder stringBuilder = new StringBuilder();
-            for(int j = 0 ; j< mapX ; j++){
-                stringBuilder.append(rectMap[j][i]);
-            }
-            a[i] = stringBuilder;
-        }
-        for(StringBuilder stringBuilder:a){
-            System.out.println(stringBuilder.toString());
-        }*/
-
-
 	public void addRect() {
 		int width = new Random().nextInt(getWidth());
 		int height = new Random().nextInt(getHeight());
 		RectF rectF = new RectF(0, 0, width, height);
-		rectArrayList.add(rectF);
+		initMatrix();
 		computeMatrix();
+		if (rectArrayList.isEmpty()) {
+			rectF.offsetTo(getWidth() / 2 - rectF.width() / 2, getHeight() / 2 - rectF.height() / 2);
+		} else {
+			RectF r = getMaxLenghtRectFromMatrix(matrix.length, matrix[0].length, matrix);
+			r.set(r.left * ROW_SIZE, r.top * ROW_SIZE, r.right * ROW_SIZE, r.bottom * ROW_SIZE);
+			rectF.offsetTo(r.centerX() - rectF.width() / 2, r.centerY() - rectF.height() / 2);
+		}
+		rectArrayList.add(rectF);
+		initMatrix();
+		computeMatrix();
+		getMaxLenghtRectFromMatrix(matrix.length, matrix[0].length, matrix);
 		invalidate();
 	}
 
-	private void getMaxLenghtRectInfoFromMatrixRow(int rowLenght, int row[], int[] resultOutput) {
-		Stack<Integer> result = new Stack<>();
-		int top_val;
+	private void getMaxAreaInfoFromColumn(int columnHeight, int column[], int[] resultOutput) {
+		Stack<Integer> columnElements = new Stack<>();
+		int topValue;
 		int startY = 0;
 		int endY = 0;
-		int width = 0;
+		int rowLenght = 0;
 		int max_area = 0;
 		int area;
 		int i = 0;
-		while (i < rowLenght) {
-			if (result.empty() || row[result.peek()] <= row[i]) {
-				result.push(i++);
+		while (i < columnHeight) {
+			if (columnElements.empty() || column[columnElements.peek()] <= column[i]) {
+				columnElements.push(i++);
 			} else {
-				int y = result.peek();
-				top_val = row[result.peek()];
-				result.pop();
-				area = top_val * i;
-				if (!result.empty()) {
-					area = top_val * (i - result.peek() - 1);
+				int y = columnElements.peek();
+				topValue = column[columnElements.peek()];
+				columnElements.pop();
+				area = topValue * i;
+				if (!columnElements.empty()) {
+					area = topValue * (i - columnElements.peek() - 1);
 				}
 				if (max_area < area) {
-					if (result.empty()) {
+					if (columnElements.empty()) {
 						startY = y;
 						endY = startY + 1;
-						width = top_val;
+						rowLenght = topValue;
 						max_area = area;
 					} else {
-						startY = result.peek();
+						startY = columnElements.peek();
 						endY = i;
-						width = top_val;
+						rowLenght = topValue;
 						max_area = area;
 					}
 				}
 			}
 		}
-		while (!result.empty()) {
-			int y = result.peek();
-			top_val = row[result.peek()];
-			result.pop();
-			area = top_val * i;
-			if (!result.empty()) {
-				area = top_val * (i - result.peek() - 1);
+		while (!columnElements.empty()) {
+			int y = columnElements.peek();
+			topValue = column[columnElements.peek()];
+			columnElements.pop();
+			area = topValue * i;
+			if (!columnElements.empty()) {
+				area = topValue * (i - columnElements.peek() - 1);
 			}
 			if (max_area < area) {
-				if (result.empty()) {
+				if (columnElements.empty()) {
 					startY = y;
 					endY = startY + 1;
-					width = top_val;
+					rowLenght = topValue;
 					max_area = area;
 				} else {
-					startY = result.peek();
+					startY = columnElements.peek();
 					endY = i;
-					width = top_val;
+					rowLenght = topValue;
 					max_area = area;
 				}
 			}
@@ -223,7 +218,7 @@ public class FreeSpaceView extends View {
 		resultOutput[0] = max_area;
 		resultOutput[1] = startY;
 		resultOutput[2] = endY;
-		resultOutput[3] = width;
+		resultOutput[3] = rowLenght;
 	}
 
 	/**
@@ -234,7 +229,7 @@ public class FreeSpaceView extends View {
 		int width = 0;
 		int endX = 0;
 
-		getMaxLenghtRectInfoFromMatrixRow(matrixHeight, matrix[0], result);
+		getMaxAreaInfoFromColumn(matrixHeight, matrix[0], result);
 		for (int i = 1; i < matrixWidth; i++) {
 			for (int j = 0; j < matrixHeight; j++) {
 				if (matrix[i][j] == 1) {
@@ -242,7 +237,7 @@ public class FreeSpaceView extends View {
 				}
 			}
 			int[] res = new int[4];
-			getMaxLenghtRectInfoFromMatrixRow(matrixHeight, matrix[i], res);
+			getMaxAreaInfoFromColumn(matrixHeight, matrix[i], res);
 			if (res[0] > result[0] && res[2] - res[1] + 1 > 1) {
 				result = res;
 				endX = i + 1;
@@ -264,7 +259,6 @@ public class FreeSpaceView extends View {
 				}
 			}
 		}
-		getMaxLenghtRectFromMatrix(matrix.length, matrix[0].length, matrix);
 	}
 
 	public void changePreviewMode() {
