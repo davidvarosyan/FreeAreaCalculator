@@ -27,6 +27,13 @@ public class MainActivity extends AppCompatActivity {
 				freeSpaceView.addRect();
 			}
 		});
+
+		findViewById(R.id.clear).setOnClickListener(new View.OnClickListener() {
+			@Override
+			public void onClick(View v) {
+				freeSpaceView.clear();
+			}
+		});
 	}
 
 }

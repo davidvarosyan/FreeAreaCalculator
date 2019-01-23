@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.support.v4.view.MotionEventCompat;
 import android.util.AttributeSet;
@@ -105,6 +106,7 @@ public class FreeSpaceView extends View {
 		rectGradientPaint = new Paint();
 		rectGradientPaint.setStyle(Paint.Style.STROKE);
 		rectGradientPaint.setColor(Color.BLACK);
+		scale = 1;
 
 		scaleGestureDetector = new ScaleGestureDetector(getContext(), new ScaleGestureDetector.OnScaleGestureListener() {
 			@Override
@@ -134,7 +136,6 @@ public class FreeSpaceView extends View {
 		for (int[] aMatrix : matrix) {
 			Arrays.fill(aMatrix, 1);
 		}
-		scale = 1;
 	}
 
 
@@ -147,105 +148,106 @@ public class FreeSpaceView extends View {
 		if (rectArrayList.isEmpty()) {
 			rectF.offsetTo(getWidth() / 2 - rectF.width() / 2, getHeight() / 2 - rectF.height() / 2);
 		} else {
-			RectF r = getMaxLenghtRectFromMatrix(matrix.length, matrix[0].length, matrix);
-			r.set(r.left * ROW_SIZE, r.top * ROW_SIZE, r.right * ROW_SIZE, r.bottom * ROW_SIZE);
-			rectF.offsetTo(r.centerX() - rectF.width() / 2, r.centerY() - rectF.height() / 2);
+			Rect r = maxRect(matrix);
+			int cx = r.centerX() * ROW_SIZE;
+			int cy = r.centerY() * ROW_SIZE;
+			rectF.offsetTo(cx - rectF.width() / 2, cy - rectF.height() / 2);
 		}
 		rectArrayList.add(rectF);
 		initMatrix();
 		computeMatrix();
-		getMaxLenghtRectFromMatrix(matrix.length, matrix[0].length, matrix);
+		maxRect(matrix);
 		invalidate();
 	}
 
-	private void getMaxAreaInfoFromColumn(int columnHeight, int column[], int[] resultOutput) {
-		Stack<Integer> columnElements = new Stack<>();
+	public void clear() {
+		rectArrayList.clear();
+		initMatrix();
+		invalidate();
+	}
+
+
+	static int[] maxRectInfo(int column[]) {
+		Stack<Integer> columnElementsIndexes = new Stack<>();
+
 		int topValue;
+		int columnHeight = column.length;
 		int startY = 0;
 		int endY = 0;
-		int rowLenght = 0;
-		int max_area = 0;
+		int rowWidth = 0;
+
+		int maxArea = 0;
 		int area;
 		int i = 0;
+
 		while (i < columnHeight) {
-			if (columnElements.empty() || column[columnElements.peek()] <= column[i]) {
-				columnElements.push(i++);
-			} else {
-				int y = columnElements.peek();
-				topValue = column[columnElements.peek()];
-				columnElements.pop();
-				area = topValue * i;
-				if (!columnElements.empty()) {
-					area = topValue * (i - columnElements.peek() - 1);
-				}
-				if (max_area < area) {
-					if (columnElements.empty()) {
-						startY = y;
-						endY = startY + 1;
-						rowLenght = topValue;
-						max_area = area;
-					} else {
-						startY = columnElements.peek();
+			if (columnElementsIndexes.empty() || column[columnElementsIndexes.peek()] <= column[i])
+				columnElementsIndexes.push(i++);
+
+			else {
+
+				topValue = column[columnElementsIndexes.peek()];
+				columnElementsIndexes.pop();
+
+				if (!columnElementsIndexes.empty()) {
+					area = topValue * (i - columnElementsIndexes.peek() - 1);
+					if (maxArea < area) {
+						maxArea = area;
 						endY = i;
-						rowLenght = topValue;
-						max_area = area;
+						startY = i - columnElementsIndexes.peek() - 1;
+						rowWidth = topValue;
 					}
 				}
 			}
 		}
-		while (!columnElements.empty()) {
-			int y = columnElements.peek();
-			topValue = column[columnElements.peek()];
-			columnElements.pop();
+		int possibleStartY = 0;
+		int possibleEndY = 0;
+
+		while (!columnElementsIndexes.empty()) {
+			topValue = column[columnElementsIndexes.peek()];
+			columnElementsIndexes.pop();
 			area = topValue * i;
-			if (!columnElements.empty()) {
-				area = topValue * (i - columnElements.peek() - 1);
+			possibleEndY = i;
+			possibleStartY = 0;
+			if (!columnElementsIndexes.empty()) {
+				area = topValue * (i - columnElementsIndexes.peek() - 1);
+				possibleEndY = i;
+				possibleStartY = columnElementsIndexes.peek() - 1;
 			}
-			if (max_area < area) {
-				if (columnElements.empty()) {
-					startY = y;
-					endY = startY + 1;
-					rowLenght = topValue;
-					max_area = area;
-				} else {
-					startY = columnElements.peek();
-					endY = i;
-					rowLenght = topValue;
-					max_area = area;
-				}
+
+			if (area > maxArea) {
+				maxArea = area;
+				rowWidth = topValue;
+				endY = possibleEndY;
+				startY = possibleStartY;
+
 			}
 		}
-		resultOutput[0] = max_area;
-		resultOutput[1] = startY;
-		resultOutput[2] = endY;
-		resultOutput[3] = rowLenght;
+		return new int[]{maxArea, startY, endY, rowWidth};
 	}
 
-	/**
-	 * Returns largest rectangle with all 1s in matrix[][]
-	 */
-	private RectF getMaxLenghtRectFromMatrix(int matrixWidth, int matrixHeight, int matrix[][]) {
-		int[] result = new int[4];
-		int width = 0;
+	static Rect maxRect(int matrix[][]) {
+		int matrixWidth = matrix.length;
+		int matrixHeight = matrix[0].length;
+		int result[] = maxRectInfo(matrix[0]);
 		int endX = 0;
 
-		getMaxAreaInfoFromColumn(matrixHeight, matrix[0], result);
 		for (int i = 1; i < matrixWidth; i++) {
+
 			for (int j = 0; j < matrixHeight; j++) {
+
 				if (matrix[i][j] == 1) {
 					matrix[i][j] += matrix[i - 1][j];
 				}
 			}
-			int[] res = new int[4];
-			getMaxAreaInfoFromColumn(matrixHeight, matrix[i], res);
-			if (res[0] > result[0] && res[2] - res[1] + 1 > 1) {
+			int res[] = maxRectInfo(matrix[i]);
+			if (res[0] > result[0]) {
 				result = res;
-				endX = i + 1;
-				width = result[3];
+				endX = i;
 			}
 		}
-		return new RectF(endX - width, result[1] + 1, endX, result[2]);
 
+		return new Rect(endX - result[3] + 1, result[1] - 1, endX + 1, result[2] - 1);
 	}
 
 	private void computeMatrix() {
