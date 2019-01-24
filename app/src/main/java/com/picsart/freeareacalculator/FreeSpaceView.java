@@ -21,19 +21,23 @@ import static android.view.MotionEvent.INVALID_POINTER_ID;
 
 public class FreeSpaceView extends View {
 
+	private static final int ROW_SIZE = 20;
+
 	private float mPosX;
 	private float mPosY;
 	private float scale;
+	private Rect maxRect;
 
 	private ScaleGestureDetector scaleGestureDetector;
 
 	private ArrayList<RectF> rectArrayList;
-	private static final int ROW_SIZE = 20;
 	private Paint rectPaint;
 	private Paint strokePaint;
-	private boolean showPreview;
 	private Paint rectGradientPaint;
+	private Paint maxRectPaint;
+
 	private int matrix[][];
+	private boolean showPreview;
 
 
 	public FreeSpaceView(Context context) {
@@ -66,6 +70,8 @@ public class FreeSpaceView extends View {
 				canvas.drawRect(rectF, rectPaint);
 				canvas.drawRect(rectF, rectGradientPaint);
 			}
+			canvas.drawRect(maxRect, maxRectPaint);
+
 		} else if (matrix != null) {
 			canvas.save();
 
@@ -76,6 +82,7 @@ public class FreeSpaceView extends View {
 				canvas.drawRect(rectF, rectPaint);
 				canvas.drawRect(rectF, rectGradientPaint);
 			}
+			canvas.drawRect(maxRect, maxRectPaint);
 			for (int i = 0; i < matrix.length; i++) {
 				canvas.drawLine((i + 1) * ROW_SIZE, 0, (i + 1) * ROW_SIZE, getHeight(), strokePaint);
 			}
@@ -106,7 +113,11 @@ public class FreeSpaceView extends View {
 		rectGradientPaint = new Paint();
 		rectGradientPaint.setStyle(Paint.Style.STROKE);
 		rectGradientPaint.setColor(Color.BLACK);
+		maxRectPaint = new Paint();
+		maxRectPaint.setStyle(Paint.Style.FILL);
+		maxRectPaint.setColor(Color.RED);
 		scale = 1;
+		maxRect = new Rect();
 
 		scaleGestureDetector = new ScaleGestureDetector(getContext(), new ScaleGestureDetector.OnScaleGestureListener() {
 			@Override
@@ -140,8 +151,8 @@ public class FreeSpaceView extends View {
 
 
 	public void addRect() {
-		int width = new Random().nextInt(getWidth());
-		int height = new Random().nextInt(getHeight());
+		int width = new Random().nextInt(getWidth() / 5);
+		int height = new Random().nextInt(getHeight() / 5);
 		RectF rectF = new RectF(0, 0, width, height);
 		initMatrix();
 		computeMatrix();
@@ -156,7 +167,15 @@ public class FreeSpaceView extends View {
 		rectArrayList.add(rectF);
 		initMatrix();
 		computeMatrix();
-		maxRect(matrix);
+		maxRect = maxRect(matrix);
+
+		int cx = maxRect.centerX() * ROW_SIZE;
+		int cy = maxRect.centerY() * ROW_SIZE;
+		int w = maxRect.width() * ROW_SIZE;
+		int h = maxRect.height() * ROW_SIZE;
+
+		maxRect.set(cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2);
+
 		invalidate();
 	}
 
@@ -180,6 +199,9 @@ public class FreeSpaceView extends View {
 		int area;
 		int i = 0;
 
+		int possibleStartY;
+		int possibleEndY;
+
 		while (i < columnHeight) {
 			if (columnElementsIndexes.empty() || column[columnElementsIndexes.peek()] <= column[i])
 				columnElementsIndexes.push(i++);
@@ -188,32 +210,36 @@ public class FreeSpaceView extends View {
 
 				topValue = column[columnElementsIndexes.peek()];
 				columnElementsIndexes.pop();
+				area = topValue * i;
+				possibleStartY = 0;
 
 				if (!columnElementsIndexes.empty()) {
 					area = topValue * (i - columnElementsIndexes.peek() - 1);
-					if (maxArea < area) {
-						maxArea = area;
-						endY = i;
-						startY = i - columnElementsIndexes.peek() - 1;
-						rowWidth = topValue;
-					}
+					possibleStartY = columnElementsIndexes.peek() - 1;
+				}
+				possibleEndY = i;
+
+
+				if (maxArea < area) {
+					maxArea = area;
+					endY = possibleEndY;
+					startY = possibleStartY;
+					rowWidth = topValue;
 				}
 			}
 		}
-		int possibleStartY = 0;
-		int possibleEndY = 0;
+
 
 		while (!columnElementsIndexes.empty()) {
 			topValue = column[columnElementsIndexes.peek()];
 			columnElementsIndexes.pop();
 			area = topValue * i;
-			possibleEndY = i;
 			possibleStartY = 0;
 			if (!columnElementsIndexes.empty()) {
 				area = topValue * (i - columnElementsIndexes.peek() - 1);
-				possibleEndY = i;
 				possibleStartY = columnElementsIndexes.peek() - 1;
 			}
+			possibleEndY = i;
 
 			if (area > maxArea) {
 				maxArea = area;
@@ -247,7 +273,7 @@ public class FreeSpaceView extends View {
 			}
 		}
 
-		return new Rect(endX - result[3] + 1, result[1] - 1, endX + 1, result[2] - 1);
+		return new Rect(endX - result[3] + 1, result[1] +1 , endX + 1, result[2]+1 );
 	}
 
 	private void computeMatrix() {
